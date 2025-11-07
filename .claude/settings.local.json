@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(if [ -d \"specs\" ])",
+      "Bash(then ls -d specs/*-windows-error-analyzer)",
+      "Bash(fi)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
