@@ -96,7 +96,7 @@ class ConsoleReporter:
             report: AnalysisReport object
         """
         self.console.print("\n[bold cyan]AI Analysis[/bold cyan]")
-        
+
         self.console.print("\n[bold]Root Cause:[/bold]")
         self.console.print(report.root_cause_summary)
 

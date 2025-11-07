@@ -21,9 +21,9 @@ class Config:
         """Load configuration from file."""
         if self.config_file.exists():
             try:
-                with open(self.config_file, "r") as f:
+                with open(self.config_file) as f:
                     self._config = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (OSError, json.JSONDecodeError):
                 self._config = {}
         else:
             self._config = {}

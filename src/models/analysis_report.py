@@ -47,32 +47,32 @@ class AnalysisReport:
         lines.append(f"**Analysis Date**: {self.generated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
         lines.append(f"**Session ID**: {self.session_id}")
         lines.append("")
-        
+
         lines.append("## AI Analysis")
         lines.append("")
         lines.append("### Root Cause")
         lines.append("")
         lines.append(self.root_cause_summary)
         lines.append("")
-        
+
         lines.append("### Detailed Analysis")
         lines.append("")
         lines.append(self.detailed_analysis)
         lines.append("")
-        
+
         if self.event_timeline:
             lines.append("### Event Timeline")
             lines.append("")
             for event in self.event_timeline:
                 lines.append(f"- {event}")
             lines.append("")
-        
+
         lines.append("### Recommended Actions")
         lines.append("")
         for i, step in enumerate(self.remediation_steps, 1):
             lines.append(f"{i}. {step}")
         lines.append("")
-        
+
         lines.append("## Analysis Metadata")
         lines.append("")
         lines.append(f"- **Model Used**: {self.model_used}")
@@ -81,12 +81,12 @@ class AnalysisReport:
         lines.append(f"- **Processing Time**: {self.processing_time_seconds:.2f} seconds")
         if self.token_usage:
             lines.append(f"- **Tokens Used**: {self.token_usage:,}")
-        
+
         if self.limitations:
             lines.append("")
             lines.append("### Limitations")
             lines.append("")
             for limitation in self.limitations:
                 lines.append(f"- {limitation}")
-        
+
         return "\n".join(lines)

@@ -1,6 +1,7 @@
 """Event log filtering utilities."""
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from src.models import EventLevel
 

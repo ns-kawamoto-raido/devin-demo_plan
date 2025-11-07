@@ -153,7 +153,7 @@ def analyze(
     except ValueError as e:
         console.display_error(str(e))
         sys.exit(3)
-    except IOError as e:
+    except OSError as e:
         console.display_error(str(e))
         sys.exit(10)
     except Exception as e:

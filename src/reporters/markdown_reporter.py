@@ -138,4 +138,4 @@ class MarkdownReporter:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
         except Exception as e:
-            raise IOError(f"Failed to write report to {file_path}: {str(e)}")
+            raise OSError(f"Failed to write report to {file_path}: {str(e)}")

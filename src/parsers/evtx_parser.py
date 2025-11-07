@@ -1,8 +1,8 @@
 """Parser for Windows event log files (.evtx)."""
 
 import os
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Iterator
 
 from src.models import EventLevel
 from src.models.event_log import EventLogEntry
