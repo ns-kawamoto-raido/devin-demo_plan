@@ -36,8 +36,7 @@ class DumpParser:
         try:
             from minidump.minidumpfile import MinidumpFile
 
-            with open(file_path, "rb") as f:
-                minidump = MinidumpFile.parse(f)
+            minidump = MinidumpFile.parse(file_path)
 
             crash_timestamp = datetime.utcnow()
             if hasattr(minidump, "sysinfo") and minidump.sysinfo:
