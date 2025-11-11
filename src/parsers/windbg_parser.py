@@ -45,15 +45,14 @@ class WinDbgParser:
         # Choose debugger: try cdb first (user/full dumps), then kd (kernel)
         out = None
         errors: list[str] = []
-        # Marked command blocks to make parsing robust
+        # Marked command blocks to make parsing robust. Use simple quoting.
         cmd_base = (
-            ".symfix; .symopt+ 0x40; .reload; "
-            ".printf \"##BEGIN_META##\\n\"; !analyze -v; .printf \"\\n##END_META##\\n\"; "
-            ".printf \"##BEGIN_STACK_TEXT##\\n\"; .echo STACK_TEXT; .echo ---------; r?; .printf \"\\n\"; .printf \"##END_STACK_TEXT##\\n\"; "
-            ".printf \"##BEGIN_STACK_KN##\\n\"; kn; .printf \"\\n##END_STACK_KN##\\n\"; "
-            ".printf \"##BEGIN_LM##\\n\"; lm t n; .printf \"\\n##END_LM##\\n\"; "
-            ".printf \"##BEGIN_VERTARGET##\\n\"; vertarget; .printf \"\\n##END_VERTARGET##\\n\"; "
-            ".printf \"##BEGIN_TIME##\\n\"; .time; .printf \"\\n##END_TIME##\\n\"; q"
+            '.symfix; .symopt+ 0x40; .reload; '
+            '.printf "##BEGIN_META##\n"; !analyze -v; .printf "\n##END_META##\n"; '
+            '.printf "##BEGIN_KN##\n"; kn; .printf "\n##END_KN##\n"; '
+            '.printf "##BEGIN_LM##\n"; lm t n; .printf "\n##END_LM##\n"; '
+            '.printf "##BEGIN_VERTARGET##\n"; vertarget; .printf "\n##END_VERTARGET##\n"; '
+            '.printf "##BEGIN_TIME##\n"; .time; .printf "\n##END_TIME##\n"; q'
         )
 
         if self.tools.cdb and Path(self.tools.cdb).exists():
@@ -139,6 +138,8 @@ class WinDbgParser:
             )
             if rc2 == 0 and out2:
                 module_version, module_timestamp = self._parse_lmvm(out2)
+        if image_name:
+            faulting_module = image_name
 
         analysis = DumpFileAnalysis(
             file_path=file_path,
@@ -239,7 +240,7 @@ class WinDbgParser:
                     stack.append(s)
         # Fallback to kn output
         if not stack:
-            kn = self._slice(text, "##BEGIN_STACK_KN##", "##END_STACK_KN##")
+            kn = self._slice(text, "##BEGIN_KN##", "##END_KN##")
             if kn:
                 for line in kn.splitlines():
                     s = line.strip()
