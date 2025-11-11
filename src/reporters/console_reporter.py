@@ -65,6 +65,8 @@ class ConsoleReporter:
         table.add_row("Crash Timestamp", jst_timestamp.strftime("%Y-%m-%d %H:%M:%S JST"))
         
         table.add_row("Crash Type", analysis.crash_type)
+        if getattr(analysis, "bugcheck_code", None):
+            table.add_row("BugCheck Code", str(analysis.bugcheck_code))
         
         if analysis.has_error_code():
             table.add_row("Error Code", f"[bold red]{analysis.error_code}[/bold red]")
@@ -74,6 +76,8 @@ class ConsoleReporter:
             table.add_row("IRQL", str(analysis.irql))
         if getattr(analysis, "image_name", None):
             table.add_row("Image Name", analysis.image_name)
+        if getattr(analysis, "symbol_name", None):
+            table.add_row("Symbol Name", analysis.symbol_name)
         if getattr(analysis, "failure_bucket_id", None):
             table.add_row("Failure Bucket ID", analysis.failure_bucket_id)
         if getattr(analysis, "default_bucket_id", None):
@@ -99,6 +103,8 @@ class ConsoleReporter:
         
         if analysis.faulting_address:
             table.add_row("Faulting Address", analysis.faulting_address)
+        if getattr(analysis, "faulting_thread_address", None):
+            table.add_row("Faulting Thread", analysis.faulting_thread_address)
 
         self.console.print(table)
 
@@ -109,6 +115,8 @@ class ConsoleReporter:
         table.add_column("Value", style="white")
 
         table.add_row("OS Version", analysis.os_version)
+        if getattr(analysis, "os_name", None):
+            table.add_row("OS Name", analysis.os_name)
         if getattr(analysis, "os_build", None):
             table.add_row("OS Build", analysis.os_build)
         table.add_row("Architecture", analysis.architecture)

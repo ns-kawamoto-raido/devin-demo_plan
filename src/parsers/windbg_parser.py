@@ -45,8 +45,15 @@ class WinDbgParser:
         # Choose debugger: try cdb first (user/full dumps), then kd (kernel)
         out = None
         errors: list[str] = []
+        # Marked command blocks to make parsing robust
         cmd_base = (
-            ".symfix; .symopt+ 0x40; .reload; !analyze -v; .ecxr; kv; lm; vertarget; .time; q"
+            ".symfix; .symopt+ 0x40; .reload; "
+            ".printf \"##BEGIN_META##\\n\"; !analyze -v; .printf \"\\n##END_META##\\n\"; "
+            ".printf \"##BEGIN_STACK_TEXT##\\n\"; .echo STACK_TEXT; .echo ---------; r?; .printf \"\\n\"; .printf \"##END_STACK_TEXT##\\n\"; "
+            ".printf \"##BEGIN_STACK_KN##\\n\"; kn; .printf \"\\n##END_STACK_KN##\\n\"; "
+            ".printf \"##BEGIN_LM##\\n\"; lm t n; .printf \"\\n##END_LM##\\n\"; "
+            ".printf \"##BEGIN_VERTARGET##\\n\"; vertarget; .printf \"\\n##END_VERTARGET##\\n\"; "
+            ".printf \"##BEGIN_TIME##\\n\"; .time; .printf \"\\n##END_TIME##\\n\"; q"
         )
 
         if self.tools.cdb and Path(self.tools.cdb).exists():
@@ -74,10 +81,7 @@ class WinDbgParser:
             out, r"^EXCEPTION_CODE:\s*\(.*\)\s*(?P<v>0x[0-9a-fA-F]+)", default=None
         )
         if not error_code:
-            # Kernel bugcheck
-            bug = self._find_first(
-                out, r"^BUGCHECK_STR:\s*(?P<v>.+)$", default=None
-            )
+            bug = self._find_first(out, r"^BUGCHECK_STR:\s*(?P<v>.+)$", None)
             if bug:
                 error_code = bug.strip()
 
@@ -94,19 +98,18 @@ class WinDbgParser:
         )
 
         thread_id = None
-        tid = self._find_first(out, r"^FAULTING_THREAD:\s*(?P<v>0x[0-9a-fA-F]+)", None)
-        if tid:
-            try:
-                thread_id = int(tid, 16)
-            except Exception:
-                pass
+        # In kernel dumps, FAULTING_THREAD is typically ETHREAD address, not TID
+        faulting_thread_address = self._find_first(
+            out, r"^FAULTING_THREAD:\s*(?P<v>0x[0-9a-fA-F]+)", None
+        )
 
         # Loaded modules: parse a few names from `lm` section
         modules = self._parse_modules(out)
 
         # Basic arch/os placeholders (can be improved with vertarget parsing)
         arch = "x64"
-        os_version = "Windows (WinDbg)"
+        os_version = self._parse_os_version(out) or "Windows (WinDbg)"
+        os_name = self._find_first(out, r"^OSNAME:\s*(?P<v>.+)$", None)
 
         # Stack preview: take first several frames from `kv` output
         stack = self._parse_stack(out)
@@ -117,6 +120,7 @@ class WinDbgParser:
 
         # Extended fields from !analyze/vertarget output
         bugcheck_args = self._parse_bugcheck_args(out)
+        bugcheck_code = self._find_first(out, r"^BUGCHECK_CODE:\s*(?P<v>\S+)$", None)
         irql = self._parse_irql(out)
         image_name = self._find_first(out, r"^IMAGE_NAME:\s*(?P<v>\S+)$", None)
         symbol_name = self._find_first(out, r"^SYMBOL_NAME:\s*(?P<v>.+)$", None)
@@ -128,7 +132,11 @@ class WinDbgParser:
         module_version = None
         module_timestamp = None
         if faulting_module:
-            out2, rc2 = self._run_any([self.tools.cdb, self.tools.kd], file_path, f".symfix; .reload; lmv m {faulting_module}; q")
+            out2, rc2 = self._run_any(
+                [self.tools.cdb, self.tools.kd],
+                file_path,
+                f".symfix; .reload; .printf \"##BEGIN_LMVM##\\n\"; lmv m {faulting_module}; .printf \"\\n##END_LMVM##\\n\"; q",
+            )
             if rc2 == 0 and out2:
                 module_version, module_timestamp = self._parse_lmvm(out2)
 
@@ -150,14 +158,17 @@ class WinDbgParser:
             system_uptime_seconds=uptime_seconds,
             parsing_errors=errors,
             bugcheck_args=bugcheck_args,
+            bugcheck_code=bugcheck_code,
             irql=irql,
             image_name=image_name,
             symbol_name=symbol_name,
             failure_bucket_id=failure_bucket_id,
             default_bucket_id=default_bucket_id,
             os_build=os_build,
+            os_name=os_name,
             module_version=module_version,
             module_timestamp=module_timestamp,
+            faulting_thread_address=faulting_thread_address,
         )
         return analysis
 
@@ -192,40 +203,66 @@ class WinDbgParser:
 
     def _parse_modules(self, text: str) -> list[str]:
         mods: list[str] = []
-        # Heuristic: lines of `lm` that look like: 'module start end  name'
-        for line in text.splitlines():
-            # Typical: 'fffff803`2b5a0000 fffff803`2b666000   nt       (pdb symbols)'
-            parts = line.strip().split()
-            if len(parts) >= 3 and re.match(r"^[0-9a-fA-F`]+$", parts[0]) and re.match(
-                r"^[0-9a-fA-F`]+$", parts[1]
-            ):
+        lm = self._slice(text, "##BEGIN_LM##", "##END_LM##")
+        if not lm:
+            return mods
+        for line in lm.splitlines():
+            line = line.strip()
+            if not line or "`" in line:
+                continue
+            parts = line.split()
+            # Expect e.g.: start end module name
+            if len(parts) >= 3 and re.match(r"^[0-9a-fA-F]+$", parts[0]) and re.match(r"^[0-9a-fA-F]+$", parts[1]):
                 name = parts[2]
-                if name not in mods and len(name) <= 64:
-                    mods.append(name)
+            else:
+                # Some formats: just the module name per line
+                name = parts[-1] if parts else ""
+            # Filter out pure hex/instruction words
+            if not name or re.match(r"^[0-9a-fA-F`:+]+$", name):
+                continue
+            if name not in mods:
+                mods.append(name)
             if len(mods) >= 50:
                 break
         return mods
 
     def _parse_stack(self, text: str) -> list[str]:
         stack: list[str] = []
-        capture = False
-        for line in text.splitlines():
-            if re.search(r"^Child-SP|^#\s+\w+", line):
-                capture = True
-            if capture:
-                if line.strip() == "" and stack:
-                    break
-                if len(line.strip()) > 0:
-                    stack.append(line.strip())
-            if len(stack) >= 20:
-                break
+        # Prefer STACK_TEXT section from !analyze -v
+        meta = self._slice(text, "##BEGIN_META##", "##END_META##") or ""
+        m = re.search(r"^STACK_TEXT:.*$([\s\S]*?)(?:^\s*$|^SYMBOL_NAME:)", meta, flags=re.MULTILINE)
+        if m:
+            block = m.group(1)
+            for line in block.splitlines():
+                s = line.strip()
+                if s:
+                    stack.append(s)
+        # Fallback to kn output
         if not stack:
-            # fallback: take a few lines around '!analyze -v' output for context
-            for line in text.splitlines():
-                if "!analyze -v" in line:
-                    stack.append("WinDbg analysis available in raw output")
-                    break
-        return stack
+            kn = self._slice(text, "##BEGIN_STACK_KN##", "##END_STACK_KN##")
+            if kn:
+                for line in kn.splitlines():
+                    s = line.strip()
+                    if s:
+                        stack.append(s)
+        if not stack:
+            stack.append("Stack trace requires symbol files for detailed analysis")
+        return stack[:20]
+
+    def _parse_os_version(self, text: str) -> str | None:
+        vt = self._slice(text, "##BEGIN_VERTARGET##", "##END_VERTARGET##")
+        if not vt:
+            return None
+        # Example: 'Windows 10 Kernel Version 26100 MP (32 procs) Free x64'
+        m = re.search(r"^(Windows\s+\d+\s+Kernel\s+Version\s+\d+).*$", vt, flags=re.MULTILINE)
+        return m.group(1) if m else None
+
+    def _slice(self, text: str, begin: str, end: str) -> str | None:
+        s = text.find(begin)
+        e = text.find(end)
+        if s == -1 or e == -1 or e <= s:
+            return None
+        return text[s + len(begin) : e].strip()
 
     def _parse_bugcheck_args(self, text: str) -> list[str]:
         args: list[str] = []

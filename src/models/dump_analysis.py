@@ -38,6 +38,9 @@ class DumpFileAnalysis:
     os_build: str | None = None
     module_version: str | None = None
     module_timestamp: str | None = None
+    bugcheck_code: str | None = None
+    faulting_thread_address: str | None = None
+    os_name: str | None = None
 
     def __post_init__(self):
         """Validate fields after initialization."""
