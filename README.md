@@ -43,6 +43,23 @@ With verbose output:
 python -m src.cli analyze --dmp /path/to/crash.dmp --verbose
 ```
 
+### Full/Kernel Dumps (WinDbg integration)
+
+- 本ツールは `MDMP` 署名のミニダンプは純粋Pythonで解析し、その他（`PAGE` 先頭の完全/カーネルダンプなど）は WinDbg（cdb/kd）を自動起動して解析します。
+- 事前に Windows SDK の Debugging Tools をインストールしてください。
+- 環境変数が設定されていれば検出をスキップします。
+
+環境変数の例:
+
+```powershell
+# デバッガのパス（任意。未指定時は既定パスを探索）
+$env:CDB_PATH = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+$env:KD_PATH  = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\kd.exe"
+
+# シンボルパス（任意）
+$env:SYMBOL_PATH = "srv*C:\Symbols*https://msdl.microsoft.com/download/symbols"
+```
+
 ### Example Output
 
 ```

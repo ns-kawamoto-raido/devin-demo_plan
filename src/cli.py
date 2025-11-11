@@ -4,7 +4,8 @@ import sys
 
 import click
 
-from src.parsers.dump_parser import DumpParser, DumpParserError
+from src.parsers.dump_parser import DumpParserError
+from src.parsers import get_parser_for
 from src.reporters.console_reporter import ConsoleReporter
 
 
@@ -46,7 +47,7 @@ def analyze(dmp, verbose):
             if verbose:
                 reporter.print_info(f"Parsing dump file: {dmp}")
             
-            parser = DumpParser()
+            parser = get_parser_for(dmp)
             analysis = parser.parse(dmp)
             
             if verbose:
@@ -64,6 +65,7 @@ def analyze(dmp, verbose):
         reporter.print_error(f"Failed to parse dump file: {e}")
         sys.exit(3)
     except Exception as e:
+        # Keep existing behavior but ensure WinDbgParserError etc. are also surfaced
         reporter.print_error(f"Unexpected error: {e}")
         if verbose:
             reporter.console.print_exception()
