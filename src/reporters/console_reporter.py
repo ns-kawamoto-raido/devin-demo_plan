@@ -1,6 +1,6 @@
 """Console reporter for displaying dump file analysis results."""
 
-from zoneinfo import ZoneInfo
+from datetime import timezone, timedelta
 
 from rich.console import Console
 from rich.panel import Panel
@@ -56,7 +56,12 @@ class ConsoleReporter:
         table.add_row("File Path", analysis.file_path)
         table.add_row("File Size", f"{analysis.file_size_bytes:,} bytes")
         
-        jst_timestamp = analysis.crash_timestamp.astimezone(ZoneInfo("Asia/Tokyo"))
+        # Ensure timestamp is timezone-aware UTC, then convert to JST (UTC+9).
+        dt = analysis.crash_timestamp
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        jst = timezone(timedelta(hours=9))
+        jst_timestamp = dt.astimezone(jst)
         table.add_row("Crash Timestamp", jst_timestamp.strftime("%Y-%m-%d %H:%M:%S JST"))
         
         table.add_row("Crash Type", analysis.crash_type)
