@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 
 from src.models.dump_analysis import DumpFileAnalysis
-from src.utils.config import find_debugger, get_symbol_path
+from src.utils.config import find_debugger, get_symbol_path, get_windbg_timeout
 
 
 class WinDbgParserError(Exception):
@@ -112,7 +112,7 @@ class WinDbgParser:
         stack = self._parse_stack(out)
 
         # Timestamp/Uptime from `.time` output (dump-internal time)
-        debug_ts = self._parse_debug_time(out) or datetime.utcnow()
+        debug_ts = self._parse_debug_time(out) or datetime.now(timezone.utc)
         uptime_seconds = self._parse_system_uptime(out)
 
         analysis = DumpFileAnalysis(
@@ -137,6 +137,7 @@ class WinDbgParser:
 
     def _run(self, tool: str, dump: str, command: str) -> tuple[str, int]:
         args = [tool, "-z", dump, "-y", self.symbol_path, "-c", command]
+        timeout = get_windbg_timeout()
         try:
             proc = subprocess.run(
                 args,
@@ -145,11 +146,11 @@ class WinDbgParser:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=300,
+                timeout=timeout,
             )
             return proc.stdout, proc.returncode
         except subprocess.TimeoutExpired as e:
-            return (f"[timeout] {e}", 1)
+            return (f"[timeout after {timeout}s] {e}", 1)
 
     def _find_first(self, text: str, pattern: str, default: str | None) -> str | None:
         m = re.search(pattern, text, flags=re.MULTILINE)
@@ -193,7 +194,7 @@ class WinDbgParser:
         return stack
 
     def _parse_debug_time(self, text: str) -> datetime | None:
-        """Parse WinDbg `.time` 'Debug session time' and return UTC naive datetime.
+        """Parse WinDbg `.time` 'Debug session time' and return timezone-aware UTC datetime.
 
         Example lines:
           Debug session time: Mon Nov 10 22:12:33.123 2025 (UTC - 8:00)
@@ -222,7 +223,7 @@ class WinDbgParser:
         # tz_str like 'UTC-8:00' means local = UTC-8, hence UTC = local + 8
         m2 = re.match(r"UTC([+\-])(\d{1,2}):(\d{2})", tz_str)
         if not m2:
-            return local_dt
+            return local_dt.replace(tzinfo=timezone.utc)
         sign, hh, mm = m2.groups()
         hours = int(hh)
         minutes = int(mm)
@@ -230,13 +231,15 @@ class WinDbgParser:
         if sign == "+":
             # local = UTC + offset -> UTC = local - offset
             offset_minutes = delta_minutes
-            return local_dt.replace(microsecond=local_dt.microsecond) - timedelta(
+            utc_dt = local_dt.replace(microsecond=local_dt.microsecond) - timedelta(
                 minutes=offset_minutes
             )
         else:
             # local = UTC - offset -> UTC = local + offset
             offset_minutes = delta_minutes
-            return local_dt + timedelta(minutes=offset_minutes)
+            utc_dt = local_dt + timedelta(minutes=offset_minutes)
+        
+        return utc_dt.replace(tzinfo=timezone.utc)
 
     def _parse_system_uptime(self, text: str) -> int | None:
         """Parse 'System Uptime' from `.time` output into seconds."""

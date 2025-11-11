@@ -1,5 +1,7 @@
 """Console reporter for displaying dump file analysis results."""
 
+from zoneinfo import ZoneInfo
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -53,7 +55,10 @@ class ConsoleReporter:
 
         table.add_row("File Path", analysis.file_path)
         table.add_row("File Size", f"{analysis.file_size_bytes:,} bytes")
-        table.add_row("Crash Timestamp", analysis.crash_timestamp.strftime("%Y-%m-%d %H:%M:%S UTC"))
+        
+        jst_timestamp = analysis.crash_timestamp.astimezone(ZoneInfo("Asia/Tokyo"))
+        table.add_row("Crash Timestamp", jst_timestamp.strftime("%Y-%m-%d %H:%M:%S JST"))
+        
         table.add_row("Crash Type", analysis.crash_type)
         
         if analysis.has_error_code():

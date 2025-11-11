@@ -5,6 +5,7 @@ import sys
 import click
 
 from src.parsers.dump_parser import DumpParserError
+from src.parsers.windbg_parser import WinDbgParserError
 from src.parsers import get_parser_for
 from src.reporters.console_reporter import ConsoleReporter
 
@@ -62,11 +63,14 @@ def analyze(dmp, verbose):
         reporter.print_error(str(e))
         sys.exit(2)
     except DumpParserError as e:
-        reporter.print_error(f"Failed to parse dump file: {e}")
+        reporter.print_error(f"ダンプファイルの解析に失敗しました: {e}")
+        sys.exit(3)
+    except WinDbgParserError as e:
+        reporter.print_error(f"WinDbgでの解析に失敗しました: {e}")
+        reporter.print_info("Windows SDK Debugging Toolsがインストールされ、CDB_PATH/KD_PATHが正しく設定されているか確認してください")
         sys.exit(3)
     except Exception as e:
-        # Keep existing behavior but ensure WinDbgParserError etc. are also surfaced
-        reporter.print_error(f"Unexpected error: {e}")
+        reporter.print_error(f"予期しないエラーが発生しました: {e}")
         if verbose:
             reporter.console.print_exception()
         sys.exit(10)

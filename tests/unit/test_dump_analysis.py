@@ -1,6 +1,6 @@
 """Unit tests for DumpFileAnalysis model."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -15,7 +15,7 @@ class TestDumpFileAnalysis:
         analysis = DumpFileAnalysis(
             file_path="/path/to/crash.dmp",
             file_size_bytes=1024,
-            crash_timestamp=datetime.utcnow(),
+            crash_timestamp=datetime.now(timezone.utc),
             crash_type="EXCEPTION",
             process_name="test.exe",
             os_version="Windows 10 Build 19045",
@@ -33,7 +33,7 @@ class TestDumpFileAnalysis:
             DumpFileAnalysis(
                 file_path="/path/to/crash.dmp",
                 file_size_bytes=0,
-                crash_timestamp=datetime.utcnow(),
+                crash_timestamp=datetime.now(timezone.utc),
                 crash_type="EXCEPTION",
                 process_name="test.exe",
                 os_version="Windows 10",
@@ -46,7 +46,7 @@ class TestDumpFileAnalysis:
             DumpFileAnalysis(
                 file_path="/path/to/crash.dmp",
                 file_size_bytes=1024,
-                crash_timestamp=datetime.utcnow(),
+                crash_timestamp=datetime.now(timezone.utc),
                 crash_type="EXCEPTION",
                 process_name="test.exe",
                 os_version="Windows 10",
@@ -58,7 +58,7 @@ class TestDumpFileAnalysis:
         analysis = DumpFileAnalysis(
             file_path="/path/to/crash.dmp",
             file_size_bytes=1024,
-            crash_timestamp=datetime.utcnow(),
+            crash_timestamp=datetime.now(timezone.utc),
             crash_type="EXCEPTION",
             process_name="test.exe",
             os_version="Windows 10",
@@ -72,7 +72,7 @@ class TestDumpFileAnalysis:
         analysis = DumpFileAnalysis(
             file_path="/path/to/crash.dmp",
             file_size_bytes=1024,
-            crash_timestamp=datetime.utcnow(),
+            crash_timestamp=datetime.now(timezone.utc),
             crash_type="EXCEPTION",
             process_name="test.exe",
             os_version="Windows 10",
@@ -86,7 +86,7 @@ class TestDumpFileAnalysis:
         analysis = DumpFileAnalysis(
             file_path="/path/to/crash.dmp",
             file_size_bytes=1024,
-            crash_timestamp=datetime.utcnow(),
+            crash_timestamp=datetime.now(timezone.utc),
             crash_type="EXCEPTION",
             process_name="test.exe",
             os_version="Windows 10",

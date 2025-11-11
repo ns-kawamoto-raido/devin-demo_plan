@@ -90,6 +90,7 @@ After generating an analysis report, the system administrator wants to save or e
 - **FR-001**: System MUST parse and extract information from Windows memory dump files (.dmp format) including crash error codes, faulting modules, stack traces, and system information
 - **FR-002**: System MUST parse and extract events from Windows Event Log files (.evtx format) including timestamp, event ID, source, severity level, and message content
 - **FR-003**: System MUST display extracted dump file information in a structured, human-readable format
+- **FR-015**: System MUST display all timestamps in JST (Japan Standard Time, UTC+9) for user-facing output while maintaining timezone-aware UTC internally for calculations and storage
 - **FR-004**: System MUST display extracted event log entries in chronological order with filtering capabilities
 - **FR-005**: System MUST allow users to filter event log entries by severity level (Critical, Error, Warning, Information)
 - **FR-006**: System MUST allow users to filter event log entries by time range relative to the dump file timestamp
@@ -132,3 +133,5 @@ After generating an analysis report, the system administrator wants to save or e
 - Users have basic understanding of Windows error diagnostics
 - Analysis reports will be in English regardless of the original event log language
 - OpenAI API usage costs will be borne by the user based on their API plan
+- All timestamps are displayed in JST (Japan Standard Time, UTC+9) as the primary user base is in Japan
+- For full/kernel dump analysis, users have Windows SDK Debugging Tools installed or can install them when prompted

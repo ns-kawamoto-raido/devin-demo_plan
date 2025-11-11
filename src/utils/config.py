@@ -6,12 +6,25 @@ import os
 from pathlib import Path
 
 
+def get_windbg_timeout() -> int:
+    """Get WinDbg timeout in seconds from environment variable.
+    
+    Returns:
+        Timeout in seconds (default: 300)
+    """
+    try:
+        timeout = int(os.getenv("WINDBG_TIMEOUT_SECONDS", "300"))
+        return max(1, min(timeout, 3600))  # Clamp between 1 and 3600 seconds
+    except ValueError:
+        return 300
+
+
 def get_symbol_path() -> str:
     """Resolve the symbol path for debuggers.
 
     Priority:
     1. ENV `SYMBOL_PATH` or `SYM_PATH`
-    2. Default to public MS symbol server with local cache at C:\Symbols
+    2. Default to public MS symbol server with local cache at C:\\Symbols
     """
     sym = os.getenv("SYMBOL_PATH") or os.getenv("SYM_PATH")
     if sym:

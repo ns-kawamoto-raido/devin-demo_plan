@@ -1,7 +1,7 @@
 """Parser for Windows dump files (.dmp)."""
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from minidump.minidumpfile import MinidumpFile
 
@@ -73,10 +73,10 @@ class DumpParser:
                 if hasattr(first_module, 'name'):
                     process_name = os.path.basename(first_module.name)
             
-            crash_timestamp = datetime.utcnow()  # Default to now
+            crash_timestamp = datetime.now(timezone.utc)  # Default to now
             if hasattr(mf, 'header') and hasattr(mf.header, 'TimeDateStamp'):
                 try:
-                    crash_timestamp = datetime.fromtimestamp(mf.header.TimeDateStamp)
+                    crash_timestamp = datetime.fromtimestamp(mf.header.TimeDateStamp, tz=timezone.utc)
                 except (ValueError, OSError) as e:
                     parsing_errors.append(f"Could not parse timestamp: {e}")
             

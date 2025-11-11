@@ -56,9 +56,18 @@ python -m src.cli analyze --dmp /path/to/crash.dmp --verbose
 $env:CDB_PATH = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
 $env:KD_PATH  = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\kd.exe"
 
-# シンボルパス（任意）
+# シンボルパス（任意。未指定時はMSシンボルサーバーを使用）
 $env:SYMBOL_PATH = "srv*C:\Symbols*https://msdl.microsoft.com/download/symbols"
+$env:SYMBOL_CACHE = "C:\Symbols"  # シンボルキャッシュの場所
+
+# WinDbgタイムアウト設定（秒単位、デフォルト: 300秒）
+$env:WINDBG_TIMEOUT_SECONDS = "600"
 ```
+
+### タイムスタンプ表示
+
+- すべてのタイムスタンプは **JST（日本標準時、UTC+9）** で表示されます
+- 内部的にはUTCで保存され、表示時にJSTに変換されます
 
 ### Example Output
 
@@ -71,7 +80,7 @@ Crash Summary
 ─────────────────────────────────────
 File Path              /path/to/crash.dmp
 File Size              1,234,567 bytes
-Crash Timestamp        2025-11-07 08:30:15 UTC
+Crash Timestamp        2025-11-07 17:30:15 JST
 Crash Type             EXCEPTION
 Error Code             0xC0000005
 Process Name           myapp.exe
