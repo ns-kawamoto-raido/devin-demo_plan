@@ -10,7 +10,7 @@ import os
 import shlex
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
 
@@ -113,10 +113,14 @@ class WinDbgParser:
         # Stack preview: take first several frames from `kv` output
         stack = self._parse_stack(out)
 
+        # Timestamp/Uptime from `.time` output (dump-internal time)
+        debug_ts = self._parse_debug_time(out) or datetime.utcnow()
+        uptime_seconds = self._parse_system_uptime(out)
+
         analysis = DumpFileAnalysis(
             file_path=file_path,
             file_size_bytes=size,
-            crash_timestamp=datetime.utcnow(),
+            crash_timestamp=debug_ts,
             crash_type="EXCEPTION" if error_code else "BUGCHECK",
             process_name=process_name or "System",
             os_version=os_version,
@@ -128,7 +132,7 @@ class WinDbgParser:
             thread_id=thread_id,
             stack_trace=stack,
             loaded_modules=modules,
-            system_uptime_seconds=None,
+            system_uptime_seconds=uptime_seconds,
             parsing_errors=errors,
         )
         return analysis
@@ -190,3 +194,74 @@ class WinDbgParser:
                     break
         return stack
 
+    def _parse_debug_time(self, text: str) -> datetime | None:
+        """Parse WinDbg `.time` 'Debug session time' and return UTC naive datetime.
+
+        Example lines:
+          Debug session time: Mon Nov 10 22:12:33.123 2025 (UTC - 8:00)
+          Debug session time: Tue Nov 11 07:01:02 2025 (UTC + 9:00)
+        """
+        m = re.search(
+            r"^Debug session time:\s*(?P<dt>[A-Za-z]{3}\s+[A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?\s+\d{4})\s*\((?P<tz>UTC\s*[+\-]\s*\d{1,2}:\d{2})\)",
+            text,
+            flags=re.MULTILINE,
+        )
+        if not m:
+            return None
+        dt_str = m.group("dt")
+        tz_str = m.group("tz").replace(" ", "")  # e.g., UTC-8:00 or UTC+9:00
+        # Parse datetime (assumed local in given tz)
+        for fmt in ("%a %b %d %H:%M:%S.%f %Y", "%a %b %d %H:%M:%S %Y"):
+            try:
+                local_dt = datetime.strptime(dt_str, fmt)
+                break
+            except ValueError:
+                local_dt = None
+        if local_dt is None:
+            return None
+
+        # Convert to UTC by subtracting the offset sign from the local time
+        # tz_str like 'UTC-8:00' means local = UTC-8, hence UTC = local + 8
+        m2 = re.match(r"UTC([+\-])(\d{1,2}):(\d{2})", tz_str)
+        if not m2:
+            return local_dt
+        sign, hh, mm = m2.groups()
+        hours = int(hh)
+        minutes = int(mm)
+        delta_minutes = hours * 60 + minutes
+        if sign == "+":
+            # local = UTC + offset -> UTC = local - offset
+            offset_minutes = delta_minutes
+            return local_dt.replace(microsecond=local_dt.microsecond) - timedelta(
+                minutes=offset_minutes
+            )
+        else:
+            # local = UTC - offset -> UTC = local + offset
+            offset_minutes = delta_minutes
+            return local_dt + timedelta(minutes=offset_minutes)
+
+    def _parse_system_uptime(self, text: str) -> int | None:
+        """Parse 'System Uptime' from `.time` output into seconds."""
+        m = re.search(r"^System Uptime:\s*(?P<v>.+)$", text, flags=re.MULTILINE)
+        if not m:
+            return None
+        v = m.group("v").strip()
+        if v.lower().startswith("not available"):
+            return None
+        # Formats like: '2 days 03:04:05.123' or '03:04:05.123'
+        days = 0
+        rest = v
+        md = re.match(r"(\d+)\s+days?\s+(.*)", rest)
+        if md:
+            days = int(md.group(1))
+            rest = md.group(2)
+        # strip milliseconds
+        rest = rest.split()[0]
+        hms = rest.split(":")
+        if len(hms) < 3:
+            return None
+        try:
+            h, m, s = int(hms[0]), int(hms[1]), int(float(hms[2]))
+            return days * 86400 + h * 3600 + m * 60 + s
+        except Exception:
+            return None
