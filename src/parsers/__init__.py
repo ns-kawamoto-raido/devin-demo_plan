@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import Protocol
 
 from .dump_parser import DumpParser

@@ -6,8 +6,6 @@ extract key fields into DumpFileAnalysis.
 
 from __future__ import annotations
 
-import os
-import shlex
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timedelta
