@@ -46,7 +46,7 @@ class WinDbgParser:
         out = None
         errors: list[str] = []
         cmd_base = (
-            ".symfix; .symopt+ 0x40; .reload; !analyze -v; .ecxr; kv; lm; .time; q"
+            ".symfix; .symopt+ 0x40; .reload; !analyze -v; .ecxr; kv; lm; vertarget; .time; q"
         )
 
         if self.tools.cdb and Path(self.tools.cdb).exists():
@@ -115,6 +115,23 @@ class WinDbgParser:
         debug_ts = self._parse_debug_time(out) or datetime.now(timezone.utc)
         uptime_seconds = self._parse_system_uptime(out)
 
+        # Extended fields from !analyze/vertarget output
+        bugcheck_args = self._parse_bugcheck_args(out)
+        irql = self._parse_irql(out)
+        image_name = self._find_first(out, r"^IMAGE_NAME:\s*(?P<v>\S+)$", None)
+        symbol_name = self._find_first(out, r"^SYMBOL_NAME:\s*(?P<v>.+)$", None)
+        failure_bucket_id = self._find_first(out, r"^FAILURE_BUCKET_ID:\s*(?P<v>.+)$", None)
+        default_bucket_id = self._find_first(out, r"^DEFAULT_BUCKET_ID:\s*(?P<v>.+)$", None)
+        os_build = self._parse_vertarget(out)
+
+        # If we have a faulting module, get detailed metadata via a second pass
+        module_version = None
+        module_timestamp = None
+        if faulting_module:
+            out2, rc2 = self._run_any([self.tools.cdb, self.tools.kd], file_path, f".symfix; .reload; lmv m {faulting_module}; q")
+            if rc2 == 0 and out2:
+                module_version, module_timestamp = self._parse_lmvm(out2)
+
         analysis = DumpFileAnalysis(
             file_path=file_path,
             file_size_bytes=size,
@@ -132,6 +149,15 @@ class WinDbgParser:
             loaded_modules=modules,
             system_uptime_seconds=uptime_seconds,
             parsing_errors=errors,
+            bugcheck_args=bugcheck_args,
+            irql=irql,
+            image_name=image_name,
+            symbol_name=symbol_name,
+            failure_bucket_id=failure_bucket_id,
+            default_bucket_id=default_bucket_id,
+            os_build=os_build,
+            module_version=module_version,
+            module_timestamp=module_timestamp,
         )
         return analysis
 
@@ -155,6 +181,14 @@ class WinDbgParser:
     def _find_first(self, text: str, pattern: str, default: str | None) -> str | None:
         m = re.search(pattern, text, flags=re.MULTILINE)
         return m.group("v").strip() if m else default
+
+    def _run_any(self, tools: list[str | None], dump: str, command: str) -> tuple[str | None, int]:
+        for t in tools:
+            if t and Path(t).exists():
+                out, rc = self._run(t, dump, command)
+                if rc == 0:
+                    return out, rc
+        return None, 1
 
     def _parse_modules(self, text: str) -> list[str]:
         mods: list[str] = []
@@ -192,6 +226,39 @@ class WinDbgParser:
                     stack.append("WinDbg analysis available in raw output")
                     break
         return stack
+
+    def _parse_bugcheck_args(self, text: str) -> list[str]:
+        args: list[str] = []
+        for n in range(1, 5):
+            m = re.search(rf"^Arg{n}:\s*(?P<v>.+)$", text, flags=re.MULTILINE)
+            if m:
+                args.append(m.group("v").strip())
+        return args
+
+    def _parse_irql(self, text: str) -> int | None:
+        m = re.search(r"^(?:IRQL|CURRENT_IRQL):\s*(?P<v>\d+)$", text, flags=re.MULTILINE)
+        if m:
+            try:
+                return int(m.group("v"))
+            except Exception:
+                return None
+        return None
+
+    def _parse_vertarget(self, text: str) -> str | None:
+        # Example: 'Windows 10 Kernel Version 19041 MP (16 procs) Free x64'
+        m = re.search(r"^Windows .* Version\s+(?P<v>\d+).*$", text, flags=re.MULTILINE)
+        return m.group("v") if m else None
+
+    def _parse_lmvm(self, text: str) -> tuple[str | None, str | None]:
+        ver = None
+        ts = None
+        m = re.search(r"^\s*File version\s*:\s*(?P<v>.+)$", text, flags=re.MULTILINE|re.IGNORECASE)
+        if m:
+            ver = m.group("v").strip()
+        m2 = re.search(r"^\s*Timestamp\s*:\s*(?P<v>.+)$", text, flags=re.MULTILINE|re.IGNORECASE)
+        if m2:
+            ts = m2.group("v").strip()
+        return ver, ts
 
     def _parse_debug_time(self, text: str) -> datetime | None:
         """Parse WinDbg `.time` 'Debug session time' and return timezone-aware UTC datetime.

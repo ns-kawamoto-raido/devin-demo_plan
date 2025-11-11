@@ -66,3 +66,11 @@ def find_debugger() -> dict[str, str | None]:
 
     return {"cdb": found_cdb, "kd": found_kd, "windbg": found_wb}
 
+
+def get_windbg_timeout() -> int:
+    """Return WinDbg execution timeout seconds from env or default (300)."""
+    try:
+        return int(os.getenv("WINDBG_TIMEOUT", "300"))
+    except Exception:
+        return 300
+

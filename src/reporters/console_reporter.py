@@ -69,6 +69,19 @@ class ConsoleReporter:
         if analysis.has_error_code():
             table.add_row("Error Code", f"[bold red]{analysis.error_code}[/bold red]")
         
+        # Extended fields (if available)
+        if getattr(analysis, "irql", None) is not None:
+            table.add_row("IRQL", str(analysis.irql))
+        if getattr(analysis, "image_name", None):
+            table.add_row("Image Name", analysis.image_name)
+        if getattr(analysis, "failure_bucket_id", None):
+            table.add_row("Failure Bucket ID", analysis.failure_bucket_id)
+        if getattr(analysis, "default_bucket_id", None):
+            table.add_row("Default Bucket ID", analysis.default_bucket_id)
+        if getattr(analysis, "bugcheck_args", None):
+            if analysis.bugcheck_args:
+                table.add_row("BugCheck Args", ", ".join(analysis.bugcheck_args))
+
         table.add_row("Process Name", analysis.process_name)
         
         if analysis.process_id:
@@ -79,6 +92,10 @@ class ConsoleReporter:
         
         if analysis.faulting_module:
             table.add_row("Faulting Module", f"[bold red]{analysis.faulting_module}[/bold red]")
+            if getattr(analysis, "module_version", None):
+                table.add_row("Module Version", analysis.module_version)
+            if getattr(analysis, "module_timestamp", None):
+                table.add_row("Module Timestamp", analysis.module_timestamp)
         
         if analysis.faulting_address:
             table.add_row("Faulting Address", analysis.faulting_address)
@@ -92,6 +109,8 @@ class ConsoleReporter:
         table.add_column("Value", style="white")
 
         table.add_row("OS Version", analysis.os_version)
+        if getattr(analysis, "os_build", None):
+            table.add_row("OS Build", analysis.os_build)
         table.add_row("Architecture", analysis.architecture)
         
         if analysis.system_uptime_seconds is not None:

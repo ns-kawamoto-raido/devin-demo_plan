@@ -28,6 +28,16 @@ class DumpFileAnalysis:
     loaded_modules: list[str] = field(default_factory=list)
     system_uptime_seconds: int | None = None
     parsing_errors: list[str] = field(default_factory=list)
+    # Extended fields extracted primarily from WinDbg
+    bugcheck_args: list[str] = field(default_factory=list)
+    irql: int | None = None
+    image_name: str | None = None
+    symbol_name: str | None = None
+    failure_bucket_id: str | None = None
+    default_bucket_id: str | None = None
+    os_build: str | None = None
+    module_version: str | None = None
+    module_timestamp: str | None = None
 
     def __post_init__(self):
         """Validate fields after initialization."""
