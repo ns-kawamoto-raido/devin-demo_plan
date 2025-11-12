@@ -14,7 +14,7 @@ Extract and display information from Windows memory dump files (.dmp), including
 - Stack traces
 - Loaded modules
 
-### User Story 2: Extract and Display Event Log Contents (in progress)
+### User Story 2: Extract and Display Event Log Contents ✅
 
 Stream .evtx files and render human-readable tables with:
 - Chronological ordering, JST timestamps, and Rich formatting
@@ -197,7 +197,7 @@ ruff check .
 ## Roadmap
 
 - [x] User Story 1: Extract and display dump file contents
-- [ ] User Story 2: Extract and display event log contents (in progress)
+- [x] User Story 2: Extract and display event log contents
 - [ ] User Story 3: Generate LLM-powered analysis reports
 - [ ] User Story 4: Save and export analysis results
 
