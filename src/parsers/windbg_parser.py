@@ -213,17 +213,19 @@ class WinDbgParser:
 
     def _parse_modules(self, text: str) -> list[str]:
         mods: list[str] = []
+        addr_re = re.compile(r"^[0-9a-fA-F`]+$")
+        name_re = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
         for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("kd>"):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("kd>"):
                 continue
-            parts = line.split()
-            # Expect e.g.: 'fffff806`ec2b0000 fffff806`ec3a0000 modulename'
-            if len(parts) >= 3 and re.match(r"^[0-9a-fA-F`]+$", parts[0]) and re.match(r"^[0-9a-fA-F`]+$", parts[1]):
-                name = parts[2]
-            else:
-                name = parts[-1] if parts else ""
-            if not name or name in ('"', "'") or re.match(r"^[0-9a-fA-F`:+]+$", name):
+            parts = stripped.split()
+            if len(parts) < 3:
+                continue
+            if not addr_re.match(parts[0]) or not addr_re.match(parts[1]):
+                continue
+            name = parts[2]
+            if not name_re.match(name):
                 continue
             if name not in mods:
                 mods.append(name)
