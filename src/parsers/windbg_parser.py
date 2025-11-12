@@ -45,25 +45,32 @@ class WinDbgParser:
         # Choose debugger: try cdb first (user/full dumps), then kd (kernel)
         out = None
         errors: list[str] = []
-        # Marked command blocks to make parsing robust. Use simple quoting.
-        cmd_base = (
-            '.symfix; .symopt+ 0x40; .reload; '
-            '.printf "##BEGIN_META##\n"; !analyze -v; .printf "\n##END_META##\n"; '
-            '.printf "##BEGIN_KN##\n"; kn; .printf "\n##END_KN##\n"; '
-            '.printf "##BEGIN_LM##\n"; lm t n; .printf "\n##END_LM##\n"; '
-            '.printf "##BEGIN_VERTARGET##\n"; vertarget; .printf "\n##END_VERTARGET##\n"; '
-            '.printf "##BEGIN_TIME##\n"; .time; .printf "\n##END_TIME##\n"; q'
-        )
+        # Simpler approach: run key commands in separate passes to avoid quoting issues
+        cmd_analyze = '!analyze -v; q'
+        cmd_kn = 'kn; q'
+        cmd_lm = 'lm t n; q'
+        cmd_vertarget = 'vertarget; q'
+        cmd_time = '.time; q'
 
         if self.tools.cdb and Path(self.tools.cdb).exists():
-            out, rc = self._run(self.tools.cdb, file_path, cmd_base)
-            # If open failed or not a user dump, fall back to kd
+            out, rc = self._run(self.tools.cdb, file_path, cmd_analyze)
+            out_kn, _ = self._run(self.tools.cdb, file_path, cmd_kn)
+            out_lm, _ = self._run(self.tools.cdb, file_path, cmd_lm)
+            out_vt, _ = self._run(self.tools.cdb, file_path, cmd_vertarget)
+            out_time, _ = self._run(self.tools.cdb, file_path, cmd_time)
+            # Fallback to kd if analyze failed
             if rc != 0 and self.tools.kd and Path(self.tools.kd).exists():
-                out2, rc2 = self._run(self.tools.kd, file_path, cmd_base)
-                if rc2 == 0:
-                    out, rc = out2, rc2
+                out, rc = self._run(self.tools.kd, file_path, cmd_analyze)
+                out_kn, _ = self._run(self.tools.kd, file_path, cmd_kn)
+                out_lm, _ = self._run(self.tools.kd, file_path, cmd_lm)
+                out_vt, _ = self._run(self.tools.kd, file_path, cmd_vertarget)
+                out_time, _ = self._run(self.tools.kd, file_path, cmd_time)
         elif self.tools.kd and Path(self.tools.kd).exists():
-            out, rc = self._run(self.tools.kd, file_path, cmd_base)
+            out, rc = self._run(self.tools.kd, file_path, cmd_analyze)
+            out_kn, _ = self._run(self.tools.kd, file_path, cmd_kn)
+            out_lm, _ = self._run(self.tools.kd, file_path, cmd_lm)
+            out_vt, _ = self._run(self.tools.kd, file_path, cmd_vertarget)
+            out_time, _ = self._run(self.tools.kd, file_path, cmd_time)
         else:
             raise WinDbgParserError(
                 "WinDbg (cdb/kd) が見つかりません。Windows SDK の Debugging Tools をインストールし、CDB_PATH/KD_PATH を設定してください。"
@@ -103,19 +110,21 @@ class WinDbgParser:
         )
 
         # Loaded modules: parse a few names from `lm` section
-        modules = self._parse_modules(out)
+        modules = self._parse_modules(out_lm or "")
 
         # Basic arch/os placeholders (can be improved with vertarget parsing)
         arch = "x64"
-        os_version = self._parse_os_version(out) or "Windows (WinDbg)"
+        os_version = self._parse_os_version(out_vt or "") or "Windows (WinDbg)"
         os_name = self._find_first(out, r"^OSNAME:\s*(?P<v>.+)$", None)
 
         # Stack preview: take first several frames from `kv` output
-        stack = self._parse_stack(out)
+        stack = self._parse_stack(out)  # from !analyze -v
+        if not stack:
+            stack = self._parse_stack_kn(out_kn or "")
 
         # Timestamp/Uptime from `.time` output (dump-internal time)
-        debug_ts = self._parse_debug_time(out) or datetime.now(timezone.utc)
-        uptime_seconds = self._parse_system_uptime(out)
+        debug_ts = self._parse_debug_time(out_time or "") or datetime.now(timezone.utc)
+        uptime_seconds = self._parse_system_uptime(out_time or "")
 
         # Extended fields from !analyze/vertarget output
         bugcheck_args = self._parse_bugcheck_args(out)
@@ -204,22 +213,17 @@ class WinDbgParser:
 
     def _parse_modules(self, text: str) -> list[str]:
         mods: list[str] = []
-        lm = self._slice(text, "##BEGIN_LM##", "##END_LM##")
-        if not lm:
-            return mods
-        for line in lm.splitlines():
+        for line in text.splitlines():
             line = line.strip()
-            if not line or "`" in line:
+            if not line or line.startswith("kd>"):
                 continue
             parts = line.split()
-            # Expect e.g.: start end module name
-            if len(parts) >= 3 and re.match(r"^[0-9a-fA-F]+$", parts[0]) and re.match(r"^[0-9a-fA-F]+$", parts[1]):
+            # Expect e.g.: 'fffff806`ec2b0000 fffff806`ec3a0000 modulename'
+            if len(parts) >= 3 and re.match(r"^[0-9a-fA-F`]+$", parts[0]) and re.match(r"^[0-9a-fA-F`]+$", parts[1]):
                 name = parts[2]
             else:
-                # Some formats: just the module name per line
                 name = parts[-1] if parts else ""
-            # Filter out pure hex/instruction words
-            if not name or re.match(r"^[0-9a-fA-F`:+]+$", name):
+            if not name or name in ('"', "'") or re.match(r"^[0-9a-fA-F`:+]+$", name):
                 continue
             if name not in mods:
                 mods.append(name)
@@ -229,23 +233,13 @@ class WinDbgParser:
 
     def _parse_stack(self, text: str) -> list[str]:
         stack: list[str] = []
-        # Prefer STACK_TEXT section from !analyze -v
-        meta = self._slice(text, "##BEGIN_META##", "##END_META##") or ""
-        m = re.search(r"^STACK_TEXT:.*$([\s\S]*?)(?:^\s*$|^SYMBOL_NAME:)", meta, flags=re.MULTILINE)
+        m = re.search(r"^STACK_TEXT:.*$([\s\S]*?)(?:^\s*$|^SYMBOL_NAME:)", text, flags=re.MULTILINE)
         if m:
             block = m.group(1)
             for line in block.splitlines():
                 s = line.strip()
                 if s:
                     stack.append(s)
-        # Fallback to kn output
-        if not stack:
-            kn = self._slice(text, "##BEGIN_KN##", "##END_KN##")
-            if kn:
-                for line in kn.splitlines():
-                    s = line.strip()
-                    if s:
-                        stack.append(s)
         if not stack:
             stack.append("Stack trace requires symbol files for detailed analysis")
         return stack[:20]
