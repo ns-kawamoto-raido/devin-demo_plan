@@ -14,6 +14,14 @@ Extract and display information from Windows memory dump files (.dmp), including
 - Stack traces
 - Loaded modules
 
+### User Story 2: Extract and Display Event Log Contents (in progress)
+
+Stream .evtx files and render human-readable tables with:
+- Chronological ordering, JST timestamps, and Rich formatting
+- Filtering by severity (--filter-level), source (--source), and time window/absolute range
+- Support for multiple files merged on timestamp
+- Graceful handling of corrupted records (skip & warn)
+
 ## Installation
 
 1. Clone the repository:
@@ -41,6 +49,37 @@ With verbose output:
 
 ```bash
 python -m src.cli analyze --dmp /path/to/crash.dmp --verbose
+```
+
+### Analyze Event Logs
+
+Parse one or more `.evtx` files without a dump input:
+
+```bash
+python -m src.cli analyze \
+  --evtx sample/Application.evtx \
+  --evtx sample/System.evtx \
+  --filter-level error \
+  --source "Service Control Manager" \
+  --start 2025-10-23T00:00:00Z \
+  --end   2025-10-24T00:00:00Z
+```
+
+Key options:
+
+- `--filter-level`: `all`, `critical`, `error`, `warning`, `info`, `verbose` (default: `all`)
+- `--source`: repeatable option to keep only specific providers (case-insensitive)
+- `--start` / `--end`: absolute UTC window (ISO-8601) for event timestamps
+
+### Combine Dump & Event Logs
+
+When a dump file is provided, you can set a relative window around the crash timestamp:
+
+```bash
+python -m src.cli analyze \
+  --dmp sample/sample.dmp \
+  --evtx sample/sample.evtx \
+  --time-window 1800  # ±30 minutes around crash time
 ```
 
 ### Full/Kernel Dumps (WinDbg integration)
@@ -158,7 +197,7 @@ ruff check .
 ## Roadmap
 
 - [x] User Story 1: Extract and display dump file contents
-- [ ] User Story 2: Extract and display event log contents
+- [ ] User Story 2: Extract and display event log contents (in progress)
 - [ ] User Story 3: Generate LLM-powered analysis reports
 - [ ] User Story 4: Save and export analysis results
 
