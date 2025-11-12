@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.models.dump_analysis import DumpFileAnalysis
+from src.models.event_log import EventLogEntry, EventLevel
 
 
 class ConsoleReporter:
