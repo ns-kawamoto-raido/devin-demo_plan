@@ -216,3 +216,7 @@ class ConsoleReporter:
             message: Info message to display
         """
         self.console.print(f"[bold blue]ℹ[/bold blue] {message}")
+
+    def print_warning(self, message: str) -> None:
+        """Print a warning message."""
+        self.console.print(f"[bold yellow]Warning:[/bold yellow] {message}")

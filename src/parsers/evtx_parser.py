@@ -18,6 +18,11 @@ class EvtxParserError(Exception):
 
 
 class EvtxParser:
+    def __init__(self, max_warning_samples: int = 5) -> None:
+        self.warning_count: int = 0
+        self._warning_samples: list[str] = []
+        self._max_warning_samples = max_warning_samples
+
     LEVEL_MAP = {
         "1": EventLevel.CRITICAL,
         "2": EventLevel.ERROR,
@@ -50,7 +55,10 @@ class EvtxParser:
                         if entry:
                             yield entry
                     except Exception as e:
-                        # 壊れたレコードはスキップし継続
+                        # 壊れたレコードはスキップし継続（警告を集計）
+                        self.warning_count += 1
+                        if len(self._warning_samples) < self._max_warning_samples:
+                            self._warning_samples.append(f"{type(e).__name__}: {e}")
                         continue
 
     @staticmethod
@@ -154,6 +162,11 @@ class EvtxParser:
                 return ", ".join(parts)
 
         return ""
+
+    # --- warnings API ---
+    def warnings_summary(self) -> tuple[int, list[str]]:
+        """Return (count, samples) of per-record parsing warnings."""
+        return self.warning_count, list(self._warning_samples)
 
     @staticmethod
     def _validate_file(path: str) -> None:

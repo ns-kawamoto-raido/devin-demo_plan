@@ -125,6 +125,15 @@ def analyze(dmp, evtx, filter_level, start, end, time_window, sources, verbose):
 
             if verbose:
                 reporter.print_info(f"Events after filtering: {len(entries)}")
+            # per-record 警告要約（T034）
+            warn_count, warn_samples = eparser.warnings_summary()
+            if warn_count:
+                reporter.print_warning(
+                    f"Event log parsing encountered {warn_count} record error(s); continued parsing."
+                )
+                if verbose and warn_samples:
+                    for s in warn_samples:
+                        reporter.print_warning(f"  - {s}")
 
             reporter.display_events(entries)
 
