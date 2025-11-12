@@ -12,6 +12,9 @@ from src.parsers.evtx_parser import EvtxParser, EvtxParserError
 from src.models.event_log import EventLogEntry
 from src.utils.filters import filter_by_level, filter_by_time_range, filter_by_source
 from src.reporters.console_reporter import ConsoleReporter
+from src.utils.config import get_openai_api_key
+from src.analyzers.correlator import correlate_events
+from src.analyzers.llm_analyzer import LLMAnalyzer
 
 
 def _parse_iso8601(value: str) -> datetime:
@@ -65,6 +68,17 @@ def cli():
     help="Time window in seconds around crash timestamp when --dmp is provided.",
 )
 @click.option(
+    "--analyze/--no-analyze",
+    default=True,
+    help="Enable/disable LLM-powered analysis (default: enabled)",
+)
+@click.option(
+    "--model",
+    type=click.Choice(["gpt-4", "gpt-3.5-turbo"], case_sensitive=False),
+    default="gpt-4",
+    help="OpenAI model for analysis",
+)
+@click.option(
     "--source",
     "sources",
     multiple=True,
@@ -75,7 +89,7 @@ def cli():
     is_flag=True,
     help="Enable verbose output",
 )
-def analyze(dmp, evtx, filter_level, start, end, time_window, sources, verbose):
+def analyze(dmp, evtx, filter_level, start, end, time_window, analyze, model, sources, verbose):
     """Analyze Windows dump and/or event logs and display results."""
     reporter = ConsoleReporter()
 
@@ -136,6 +150,26 @@ def analyze(dmp, evtx, filter_level, start, end, time_window, sources, verbose):
                         reporter.print_warning(f"  - {s}")
 
             reporter.display_events(entries)
+
+        # US3: LLM-powered analysis
+        if analyze:
+            # Validate API key availability
+            if not get_openai_api_key():
+                reporter.print_error("OPENAI_API_KEY is not set. Use .env or environment variable.")
+                sys.exit(2)
+
+            # Correlate events around crash timestamp or given range
+            correlated = correlate_events(
+                dump_analysis, entries if evtx else [],
+                _parse_iso8601(start) if start else None,
+                _parse_iso8601(end) if end else None,
+                time_window,
+            )
+
+            analyzer = LLMAnalyzer(model=model)
+            summary = analyzer.summarize_inputs(dump_analysis, correlated)
+            report, meta = analyzer.analyze(summary)
+            reporter.display_ai_analysis(report)
 
         reporter.print_success("Analysis complete!")
         sys.exit(0)

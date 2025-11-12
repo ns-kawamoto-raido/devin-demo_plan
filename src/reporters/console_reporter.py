@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from src.models.dump_analysis import DumpFileAnalysis
+from src.models.analysis_report import AnalysisReport, ConfidenceLevel
 from src.models.event_log import EventLogEntry, EventLevel
 
 
@@ -220,3 +221,45 @@ class ConsoleReporter:
     def print_warning(self, message: str) -> None:
         """Print a warning message."""
         self.console.print(f"[bold yellow]Warning:[/bold yellow] {message}")
+
+    # --- US3 additions ---
+    def display_ai_analysis(self, report: AnalysisReport) -> None:
+        """Display LLM-powered analysis sections."""
+        self.console.print()
+        self.console.print(Panel.fit("[bold magenta]AI Analysis[/bold magenta]", border_style="magenta"))
+        self.console.print()
+
+        # Root cause and details
+        self.console.print("[bold magenta]Root Cause[/bold magenta]")
+        self.console.print(report.root_cause_summary or "(no summary)")
+        self.console.print()
+
+        self.console.print("[bold magenta]Detailed Analysis[/bold magenta]")
+        self.console.print(report.detailed_analysis or "(no details)")
+        self.console.print()
+
+        # Timeline
+        if report.event_timeline:
+            table = Table(title="Event Timeline (AI-selected)")
+            table.add_column("Timeline", style="white")
+            for line in report.event_timeline:
+                table.add_row(line)
+            self.console.print(table)
+
+        # Remediation steps
+        if report.remediation_steps:
+            self.console.print("[bold magenta]Recommended Actions[/bold magenta]")
+            for i, step in enumerate(report.remediation_steps, 1):
+                self.console.print(f"  {i}. {step}")
+
+        # Metadata
+        meta = Table(title="Analysis Metadata", show_header=False, box=None)
+        meta.add_column("Field", style="bold cyan", width=22)
+        meta.add_column("Value", style="white")
+        meta.add_row("Model Used", report.model_used)
+        if report.confidence_level:
+            meta.add_row("Confidence", report.confidence_level.value)
+        if report.token_usage is not None:
+            meta.add_row("Tokens Used", str(report.token_usage))
+        meta.add_row("Processing Time", f"{report.processing_time_seconds:.1f} seconds")
+        self.console.print(meta)

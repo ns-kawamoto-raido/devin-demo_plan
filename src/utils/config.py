@@ -1,9 +1,10 @@
-"""Configuration helpers for debugger integration."""
+"""Configuration helpers for debugger integration and API keys."""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional
 
 
 def get_windbg_timeout() -> int:
@@ -73,4 +74,39 @@ def get_windbg_timeout() -> int:
         return int(os.getenv("WINDBG_TIMEOUT", "300"))
     except Exception:
         return 300
+
+
+def get_openai_api_key() -> Optional[str]:
+    """Return OpenAI API key from environment or .env file.
+
+    Order:
+    1) ENV OPENAI_API_KEY
+    2) .env file in project root (simple KEY=VALUE parser)
+    """
+    key = os.getenv("OPENAI_API_KEY")
+    if key:
+        return key
+
+    # Try to read .env one level above this file (project root)
+    try:
+        root = Path(__file__).resolve().parents[2]
+        env_path = root / ".env"
+        if env_path.exists():
+            for line in env_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k == "OPENAI_API_KEY" and v:
+                    # cache into env for subsequent uses
+                    os.environ["OPENAI_API_KEY"] = v
+                    return v
+    except Exception:
+        pass
+
+    return None
 
