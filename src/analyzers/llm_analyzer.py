@@ -75,11 +75,11 @@ class LLMAnalyzer:
 
     def build_prompts(self, summary: Dict) -> Tuple[str, str]:
         system = (
-            "You are a senior Windows diagnostics expert. Analyze crash dumps and "
-            "Windows Event Logs to determine root cause and remediation. Provide "
-            "clear, actionable steps with references to evidence. Output strictly "
-            "as compact JSON with keys: root_cause_summary, detailed_analysis, "
-            "remediation_steps, event_timeline, confidence."
+            "あなたはWindows障害解析の上級エンジニアです。クラッシュダンプとWindowsイベントログを分析し、"
+            "根本原因と具体的な対処手順を提示してください。回答は必ず日本語で、簡潔かつ根拠（提示データの項目や時刻）に言及してください。"
+            "出力形式は厳密にJSONのみとし、キーは次の通り（英語のまま）: "
+            "root_cause_summary, detailed_analysis, remediation_steps, event_timeline, confidence。"
+            "推測は避け、不確実な点はその旨を明示してください。Markdownや追加テキストは含めないでください。"
         )
 
         user = json.dumps(summary, ensure_ascii=False)
@@ -137,4 +137,3 @@ class LLMAnalyzer:
             "latency_seconds": elapsed,
         }
         return report, meta
-

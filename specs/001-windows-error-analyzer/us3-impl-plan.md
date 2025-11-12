@@ -7,6 +7,7 @@
 ## 目的
 - 抽出済みのダンプ/イベント情報から、LLMを用いた原因分析・推奨対処のレポートを生成する。
 - 受け入れ条件(US3-1〜3)の達成、およびLLM不通時のフォールバック(US3-4)を実装。
+- レポート本文は日本語で出力（JSONキー名は英語のまま）に統一。
 
 ## 前提/依存
 - US1/US2のパーサとデータモデルが利用可能であること。
@@ -31,7 +32,7 @@
     - `analyze(summary: dict) -> tuple[AnalysisReport, dict]`  # (report, {token_usage, latency})
 
 ## プロンプト設計(要旨)
-- system: 「あなたはWindows障害解析の専門家。再現手順/根因/推奨対処を、箇条書きと根拠付きで。」
+- system: 日本語での回答を必須化。根拠（該当イベントやスタック）明示、誤認時は不確実性も明示。出力はJSONのみ（キーは英語）。
 - user: ダンプ要約(エラーコード/モジュール/上位スタック)＋相関イベント(最大N件)＋環境(OS/arch)。
 - 出力フォーマット: JSON(キー: root_cause_summary, detailed_analysis, remediation_steps[], event_timeline[], confidence)。
 
