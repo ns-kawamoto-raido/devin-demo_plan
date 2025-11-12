@@ -10,7 +10,7 @@ from src.parsers.windbg_parser import WinDbgParserError
 from src.parsers import get_parser_for
 from src.parsers.evtx_parser import EvtxParser, EvtxParserError
 from src.models.event_log import EventLogEntry
-from src.utils.filters import filter_by_level, filter_by_time_range
+from src.utils.filters import filter_by_level, filter_by_time_range, filter_by_source
 from src.reporters.console_reporter import ConsoleReporter
 
 
@@ -65,11 +65,17 @@ def cli():
     help="Time window in seconds around crash timestamp when --dmp is provided.",
 )
 @click.option(
+    "--source",
+    "sources",
+    multiple=True,
+    help="Filter events by source/provider name (repeatable)",
+)
+@click.option(
     "--verbose",
     is_flag=True,
     help="Enable verbose output",
 )
-def analyze(dmp, evtx, filter_level, start, end, time_window, verbose):
+def analyze(dmp, evtx, filter_level, start, end, time_window, sources, verbose):
     """Analyze Windows dump and/or event logs and display results."""
     reporter = ConsoleReporter()
 
@@ -109,6 +115,8 @@ def analyze(dmp, evtx, filter_level, start, end, time_window, verbose):
             # ストリーミングでフィルタ
             filtered = entries_iter
             filtered = filter_by_level(filtered, filter_level)
+            if sources:
+                filtered = filter_by_source(filtered, set(sources))
             if start_dt and end_dt:
                 filtered = filter_by_time_range(filtered, start_dt, end_dt)
 
@@ -118,19 +126,7 @@ def analyze(dmp, evtx, filter_level, start, end, time_window, verbose):
             if verbose:
                 reporter.print_info(f"Events after filtering: {len(entries)}")
 
-            if hasattr(reporter, "display_events"):
-                reporter.display_events(entries)
-            else:
-                from rich.table import Table
-                table = Table(title="Event Logs")
-                table.add_column("Timestamp", width=22)
-                table.add_column("Level", width=10)
-                table.add_column("Source", width=24)
-                table.add_column("EventID", width=8)
-                table.add_column("Message")
-                for e in entries:
-                    table.add_row(e.timestamp.isoformat(), e.level.value, e.source, str(e.event_id), (e.message or "").strip())
-                reporter.console.print(table)
+            reporter.display_events(entries)
 
         reporter.print_success("Analysis complete!")
         sys.exit(0)

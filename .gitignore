@@ -49,3 +49,5 @@ Thumbs.db
  
 # Local samples/logs
 sample.txt
+sample.dmp
+sample.evtx

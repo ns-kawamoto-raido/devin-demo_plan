@@ -1,4 +1,4 @@
-"""Console reporter for displaying dump file analysis results."""
+"""Console reporter for displaying dump and event log analysis results."""
 
 from datetime import timezone, timedelta
 
@@ -153,6 +153,45 @@ class ConsoleReporter:
         
         for error in analysis.parsing_errors:
             self.console.print(f"  [yellow]⚠[/yellow] {error}")
+
+    def display_events(self, entries: list[EventLogEntry], title: str = "Event Logs") -> None:
+        """Display Windows event log entries."""
+        if not entries:
+            self.console.print("[yellow]No events matched the current filters.[/yellow]")
+            return
+
+        table = Table(title=title)
+        table.add_column("Timestamp", style="white", width=22)
+        table.add_column("Level", style="white", width=10)
+        table.add_column("Source", style="white", width=28)
+        table.add_column("EventID", style="white", width=8)
+        table.add_column("Message", style="white")
+
+        jst = timezone(timedelta(hours=9))
+        for entry in entries:
+            dt = entry.timestamp
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            jst_timestamp = dt.astimezone(jst).strftime("%Y-%m-%d %H:%M:%S JST")
+            table.add_row(
+                jst_timestamp,
+                self._format_level(entry.level),
+                entry.source,
+                str(entry.event_id),
+                (entry.message or "").strip(),
+            )
+
+        self.console.print(table)
+
+    @staticmethod
+    def _format_level(level: EventLevel) -> str:
+        if level in (EventLevel.CRITICAL, EventLevel.ERROR):
+            return f"[bold red]{level.value}[/bold red]"
+        if level is EventLevel.WARNING:
+            return f"[bold yellow]{level.value}[/bold yellow]"
+        if level is EventLevel.INFORMATION:
+            return f"[bold blue]{level.value}[/bold blue]"
+        return level.value
 
     def print_error(self, message: str) -> None:
         """Print an error message.
