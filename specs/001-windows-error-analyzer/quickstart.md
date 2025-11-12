@@ -142,7 +142,28 @@ python -m src.cli analyze \
   --evtx tests/fixtures/sample.evtx \
   --output test_report.md \
   --verbose
+
+# Event logs only with filters
+python -m src.cli analyze \
+  --evtx tests/fixtures/sample.evtx \
+  --filter-level warning \
+  --source "Service Control Manager" \
+  --start 2025-10-23T00:00:00Z \
+  --end   2025-10-24T00:00:00Z
+
+# Dump + events using a relative time window
+python -m src.cli analyze \
+  --dmp tests/fixtures/sample.dmp \
+  --evtx tests/fixtures/sample.evtx \
+  --time-window 3600
 ```
+
+**Filtering tips**
+
+- `--filter-level` accepts `all`, `critical`, `error`, `warning`, `info`, `verbose` (default: `all`).
+- `--source` can be specified multiple times to keep only certain providers (case-insensitive).
+- Absolute ranges: use `--start` / `--end` with ISO-8601 timestamps (UTC recommended).
+- Relative ranges: when `--dmp` is provided, `--time-window` restricts events to ±N seconds around the crash time.
 
 ### Running Tests
 

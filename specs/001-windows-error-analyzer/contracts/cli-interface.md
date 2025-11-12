@@ -52,13 +52,18 @@ None (all inputs via options)
 | `--output` | `-o` | PATH | Yes | None | Path for output markdown report |
 | `--analyze/--no-analyze` | | FLAG | No | `--analyze` | Enable/disable LLM analysis |
 | `--model` | `-m` | TEXT | No | `gpt-4` | OpenAI model to use (gpt-4, gpt-3.5-turbo) |
-| `--filter-level` | `-f` | CHOICE | No | `error` | Event log filter level (all, critical, error, warning, info) |
-| `--time-window` | `-t` | INT | No | 3600 | Time window in seconds around crash (for event filtering) |
+| `--filter-level` | `-f` | CHOICE | No | `all` | Event log filter level (all, critical, error, warning, info, verbose) |
+| `--source` | | TEXT | No | None | Filter events by provider/source name (repeatable, case-insensitive) |
+| `--start` | | TEXT | No | None | Inclusive start timestamp (ISO-8601, UTC recommended) |
+| `--end` | | TEXT | No | None | Inclusive end timestamp (ISO-8601) |
+| `--time-window` | `-t` | INT | No | 3600 | ±seconds around crash timestamp when `--dmp` is provided |
 | `--verbose` | `-v` | FLAG | No | False | Enable verbose output |
 | `--quiet` | `-q` | FLAG | No | False | Suppress progress output (JSON only) |
 | `--json` | | FLAG | No | False | Output results as JSON instead of markdown |
 
 \* At least one of `--dmp` or `--evtx` is required
+
+`--start` / `--end` take precedence over `--time-window`. When neither absolute nor relative bounds are provided, all events are eligible for display.
 
 #### Examples
 
@@ -94,7 +99,19 @@ windows-error-analyzer analyze \
 windows-error-analyzer analyze \
   --evtx System.evtx \
   --filter-level error \
+  --source "Service Control Manager" \
+  --start 2025-10-23T00:00:00Z \
+  --end   2025-10-24T00:00:00Z \
   --output events.md
+```
+
+**Use crash-relative window for dump + events:**
+```bash
+windows-error-analyzer analyze \
+  --dmp crash.dmp \
+  --evtx System.evtx \
+  --time-window 1800 \
+  --output focused.md
 ```
 
 **JSON output for scripting:**

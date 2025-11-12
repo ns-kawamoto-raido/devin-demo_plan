@@ -2,3 +2,6 @@ pytest>=8.0.0
 ruff>=0.14.0
 openai>=2.0.0
 python-evtx>=0.8.0
+minidump>=0.0.21
+click>=8.0.0
+rich>=13.0.0
