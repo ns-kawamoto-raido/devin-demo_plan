@@ -131,9 +131,24 @@ class LLMAnalyzer:
                 "confidence": "Medium",
             }
 
+        def _as_list_str(value) -> List[str]:
+            if value is None:
+                return []
+            if isinstance(value, list):
+                return [str(v).strip() for v in value if str(v).strip()]
+            if isinstance(value, str):
+                parts = [p.strip(" \t\r\n-•") for p in value.splitlines()]
+                return [p for p in parts if p]
+            # Fallback: wrap single value
+            s = str(value).strip()
+            return [s] if s else []
+
         session_id = str(uuid.uuid4())
         confidence = (data.get("confidence") or "Medium").capitalize()
         conf_enum = ConfidenceLevel[confidence.upper()] if confidence.upper() in ConfidenceLevel.__members__ else None
+
+        event_timeline_norm = _as_list_str(data.get("event_timeline")) or summary.get("timeline", [])
+        remediation_steps_norm = _as_list_str(data.get("remediation_steps"))
 
         report = AnalysisReport(
             session_id=session_id,
@@ -142,8 +157,8 @@ class LLMAnalyzer:
             model_used=self.model,
             root_cause_summary=data.get("root_cause_summary", ""),
             detailed_analysis=data.get("detailed_analysis", ""),
-            event_timeline=data.get("event_timeline", summary.get("timeline", [])),
-            remediation_steps=data.get("remediation_steps", []),
+            event_timeline=event_timeline_norm,
+            remediation_steps=remediation_steps_norm,
             processing_time_seconds=elapsed,
             confidence_level=conf_enum,
             token_usage=getattr(resp, "usage", None).total_tokens if getattr(resp, "usage", None) else None,

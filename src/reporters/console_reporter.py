@@ -238,13 +238,11 @@ class ConsoleReporter:
         self.console.print(report.detailed_analysis or "(no details)")
         self.console.print()
 
-        # Timeline
+        # Timeline（長文でも崩れにくいよう箇条書き表示）
         if report.event_timeline:
-            table = Table(title="Event Timeline (AI-selected)")
-            table.add_column("Timeline", style="white")
+            self.console.print("[bold magenta]Event Timeline (AI-selected)[/bold magenta]")
             for line in report.event_timeline:
-                table.add_row(line)
-            self.console.print(table)
+                self.console.print(f"- {line}")
 
         # Remediation steps
         if report.remediation_steps:
