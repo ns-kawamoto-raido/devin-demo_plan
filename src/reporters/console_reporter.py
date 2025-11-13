@@ -261,3 +261,10 @@ class ConsoleReporter:
             meta.add_row("Tokens Used", str(report.token_usage))
         meta.add_row("Processing Time", f"{report.processing_time_seconds:.1f} seconds")
         self.console.print(meta)
+
+        # Limitations
+        if getattr(report, "limitations", None):
+            self.console.print()
+            self.console.print("[bold yellow]Limitations[/bold yellow]")
+            for item in report.limitations:
+                self.console.print(f"- {item}")

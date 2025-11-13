@@ -69,9 +69,16 @@ class LLMAnalyzer:
                 "stack_trace": stack,
             }
 
+        limitations: List[str] = []
+        if not dump:
+            limitations.append("ダンプが未提供のため、根因特定の精度が限定されます。")
+        if not events:
+            limitations.append("イベントログが未提供のため、時系列相関の精度が限定されます。")
+
         return {
             "dump": dump_summary,
             "timeline": timeline,
+            "limitations": limitations,
         }
 
     def build_prompts(self, summary: Dict) -> Tuple[str, str]:
@@ -162,7 +169,9 @@ class LLMAnalyzer:
             processing_time_seconds=elapsed,
             confidence_level=conf_enum,
             token_usage=getattr(resp, "usage", None).total_tokens if getattr(resp, "usage", None) else None,
-            limitations=[],
+            limitations=(
+                _as_list_str(data.get("limitations")) + summary.get("limitations", [])
+            ),
         )
 
         meta = {
