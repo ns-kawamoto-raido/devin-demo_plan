@@ -155,21 +155,29 @@ def analyze(dmp, evtx, filter_level, start, end, time_window, analyze, model, so
         if analyze:
             # Validate API key availability
             if not get_openai_api_key():
-                reporter.print_error("OPENAI_API_KEY is not set. Use .env or environment variable.")
-                sys.exit(2)
+                reporter.print_error("OPENAI_API_KEY が未設定です。.env または環境変数を設定してください。\nヒント: --no-analyze を付けると抽出のみ実行できます。")
+                # フォールバック: 抽出結果の表示は継続済み
+                analyze = False
+            else:
+                try:
+                    # Correlate events around crash timestamp or given range
+                    correlated = correlate_events(
+                        dump_analysis, entries if evtx else [],
+                        _parse_iso8601(start) if start else None,
+                        _parse_iso8601(end) if end else None,
+                        time_window,
+                    )
 
-            # Correlate events around crash timestamp or given range
-            correlated = correlate_events(
-                dump_analysis, entries if evtx else [],
-                _parse_iso8601(start) if start else None,
-                _parse_iso8601(end) if end else None,
-                time_window,
-            )
-
-            analyzer = LLMAnalyzer(model=model)
-            summary = analyzer.summarize_inputs(dump_analysis, correlated)
-            report, meta = analyzer.analyze(summary)
-            reporter.display_ai_analysis(report)
+                    analyzer = LLMAnalyzer(model=model)
+                    summary = analyzer.summarize_inputs(dump_analysis, correlated)
+                    report, meta = analyzer.analyze(summary)
+                    reporter.display_ai_analysis(report)
+                except Exception as e:
+                    # US3-4: LLM不通時のフォールバック
+                    reporter.print_warning(
+                        "AI解析に失敗しました。後で再試行するか、--no-analyze で抽出のみを保存してください。"
+                    )
+                    reporter.print_error(str(e))
 
         reporter.print_success("Analysis complete!")
         sys.exit(0)

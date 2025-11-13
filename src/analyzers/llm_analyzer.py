@@ -7,6 +7,7 @@ from dataclasses import asdict
 from typing import Dict, List, Optional, Tuple
 
 from openai import OpenAI
+from openai import APIError, APIConnectionError, RateLimitError, AuthenticationError, BadRequestError, Timeout
 
 from src.models.analysis_report import AnalysisReport, ConfidenceLevel
 from src.models.dump_analysis import DumpFileAnalysis
@@ -90,14 +91,31 @@ class LLMAnalyzer:
         system, user = self.build_prompts(summary)
 
         start = time.perf_counter()
+        # Exponential backoff: 1s, 2s, 4s, 8s (max 4 attempts)
+        last_err: Exception | None = None
         with spinner("Analyzing crash with AI..."):
-            resp = client.chat.completions.create(
-                model=self.model,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                timeout=self.timeout_s,
-            )
+            for attempt in range(4):
+                try:
+                    resp = client.chat.completions.create(
+                        model=self.model,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                        timeout=self.timeout_s,
+                    )
+                    break
+                except (RateLimitError, APIConnectionError, Timeout) as e:
+                    last_err = e
+                    delay = 2 ** attempt
+                    time.sleep(delay)
+                except (AuthenticationError, BadRequestError, APIError) as e:
+                    # Non-retryable or likely client-side issues
+                    last_err = e
+                    raise
+            else:
+                # Exhausted retries
+                if last_err:
+                    raise last_err
         elapsed = time.perf_counter() - start
 
         content = resp.choices[0].message.content if resp.choices else "{}"
