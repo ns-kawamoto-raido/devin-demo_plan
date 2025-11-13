@@ -2,6 +2,11 @@
 
 A Python-based CLI tool that extracts and analyzes crash information from Windows dump files (.dmp) and event logs (.evtx).
 
+### Output Language Policy
+
+- AI分析の本文は日本語で出力します。
+- JSON出力時のキー名は互換性のため英語のまま（例: `root_cause_summary`, `detailed_analysis`, `remediation_steps`, `event_timeline`, `confidence`).
+
 ## Features
 
 ### User Story 1: Extract and Display Dump File Contents ✅
@@ -194,11 +199,33 @@ ruff check .
 - rich >= 13.0.0
 - pytest >= 8.0.0 (for testing)
 
+## AI Analysis Options
+
+Examples for controlling AI analysis:
+
+```bash
+# 指定モデルで解析（コスト/速度調整）
+python -m src.cli analyze \
+  --dmp sample/sample.dmp \
+  --evtx sample/sample.evtx \
+  --model gpt-3.5-turbo
+
+# 抽出のみ（AI解析を無効化）
+python -m src.cli analyze \
+  --dmp sample/sample.dmp \
+  --evtx sample/sample.evtx \
+  --no-analyze
+```
+
+### Environment Variables
+
+- `OPENAI_API_KEY`: 必須。`.env` に記載するか、環境変数で設定してください。未設定の場合は抽出のみ実行し、AI解析はフォールバックします。
+
 ## Roadmap
 
 - [x] User Story 1: Extract and display dump file contents
 - [x] User Story 2: Extract and display event log contents
-- [ ] User Story 3: Generate LLM-powered analysis reports
+- [x] User Story 3: Generate LLM-powered analysis reports
 - [ ] User Story 4: Save and export analysis results
 
 ## License

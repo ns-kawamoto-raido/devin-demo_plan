@@ -131,7 +131,7 @@ After generating an analysis report, the system administrator wants to save or e
 - Users have internet connectivity for OpenAI API access during analysis (offline extraction is still possible)
 - Users have or can obtain an OpenAI API key for analysis features
 - Users have basic understanding of Windows error diagnostics
-- Analysis reports will be in English regardless of the original event log language
+- Analysis reports: Body in Japanese; JSON keys remain English for compatibility (e.g., root_cause_summary, remediation_steps)
 - OpenAI API usage costs will be borne by the user based on their API plan
 - All timestamps are displayed in JST (Japan Standard Time, UTC+9) as the primary user base is in Japan
 - For full/kernel dump analysis, users have Windows SDK Debugging Tools installed or can install them when prompted
