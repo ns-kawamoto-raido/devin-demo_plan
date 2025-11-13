@@ -51,3 +51,5 @@ Thumbs.db
 sample.txt
 sample.dmp
 sample.evtx
+sample-analysis.md
+sample-session.json

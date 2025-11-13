@@ -27,6 +27,12 @@ Stream .evtx files and render human-readable tables with:
 - Support for multiple files merged on timestamp
 - Graceful handling of corrupted records (skip & warn)
 
+### User Story 4: Save and Export Analysis Results ✅
+
+- `--output report.md` でMarkdownレポートを保存（AI分析結果があれば全文、なければサマリー）
+- `--output session.json --json` でダンプ/イベント/AIレポートを含むセッションを丸ごと保存
+- `--load session.json` で過去のセッションを再読込し、再処理なしで内容を確認・再エクスポート
+
 ## Installation
 
 1. Clone the repository:
@@ -75,6 +81,8 @@ Key options:
 - `--filter-level`: `all`, `critical`, `error`, `warning`, `info`, `verbose` (default: `all`)
 - `--source`: repeatable option to keep only specific providers (case-insensitive)
 - `--start` / `--end`: absolute UTC window (ISO-8601) for event timestamps
+- `--output`: Markdownファイルを保存。`--json` と併用でセッションJSONを保存
+- `--load`: `--json` 出力で保存したセッションを再読込
 
 ### Combine Dump & Event Logs
 
@@ -86,6 +94,26 @@ python -m src.cli analyze \
   --evtx sample/sample.evtx \
   --time-window 1800  # ±30 minutes around crash time
 ```
+
+### Save and Reload Sessions
+
+- Markdownエクスポート（AI分析がなければサマリー）:
+  ```bash
+  python -m src.cli analyze --dmp sample/sample.dmp --output reports/latest.md --no-analyze
+  ```
+- JSONセッション保存（後から再読込可能）:
+  ```bash
+  python -m src.cli analyze \
+    --dmp sample/sample.dmp \
+    --evtx sample/sample.evtx \
+    --output sessions/2025-11-13.json \
+    --json \
+    --no-analyze
+  ```
+- セッション再読込とMarkdown化:
+  ```bash
+  python -m src.cli analyze --load sessions/2025-11-13.json --output reports/from-session.md
+  ```
 
 ### Full/Kernel Dumps (WinDbg integration)
 
@@ -226,7 +254,7 @@ python -m src.cli analyze \
 - [x] User Story 1: Extract and display dump file contents
 - [x] User Story 2: Extract and display event log contents
 - [x] User Story 3: Generate LLM-powered analysis reports
-- [ ] User Story 4: Save and export analysis results
+- [x] User Story 4: Save and export analysis results
 
 ## License
 
